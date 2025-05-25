@@ -1,6 +1,75 @@
+# Security Code Review Challenge
+
+> **Note to Interviewer**: This repository contains intentional security vulnerabilities for candidates to identify and fix during the interview process.
+
+## 🎯 Interview Task
+
+Your task is to conduct a security review of this task management system. You should:
+
+1. **Identify Security Vulnerabilities**: Find and document potential security issues in the codebase
+2. **Propose Fixes**: For each vulnerability, explain how you would fix it
+3. **Implement Fixes**: Submit a pull request with your proposed security improvements
+
+### 📋 Instructions
+
+1. **Fork** this repository to your GitHub account
+2. **Clone** your forked repository locally
+3. **Review** the codebase for security vulnerabilities
+4. **Create Issues** for each vulnerability you find
+5. **Fix** the vulnerabilities in your fork
+6. **Submit a Pull Request** with your changes
+
+### 🔍 Areas to Focus On
+
+- Authentication and authorization
+- Input validation
+- Database security
+- API security
+- Dependency management
+- Secure coding practices
+
+### 🚀 Getting Started
+
+1. **Setup** the development environment (see below)
+2. **Review** the open issues for known security concerns
+3. **Run** the application to understand its functionality
+4. **Inspect** the code for potential security flaws
+
+### 📝 Submission
+
+Submit a pull request with:
+
+- A list of all vulnerabilities found
+- Explanation of each vulnerability's impact
+- Your proposed fixes
+- Any additional security recommendations
+
+### ⏱ Time Allocated
+
+- **Review**: 30-45 minutes
+- **Fixes**: 60-90 minutes
+- **Documentation**: 15-30 minutes
+
+---
+
 # Task Management System
 
 A full-stack task management application built with Vue 3 (TypeScript) and FastAPI (Python). This application provides a complete solution for managing projects, tasks, and team collaboration with a modern, responsive interface.
+
+## 🚨 Known Security Issues
+
+> **Note to Interviewer**: The following are intentionally introduced vulnerabilities for the interview. Do not document these in the repository.
+
+1. **SQL Injection** in task filtering endpoint
+2. **Broken Authentication** in JWT implementation
+3. **Insecure Direct Object References** in task assignment
+4. **Missing Input Validation** in API endpoints
+5. **Information Exposure** in error messages
+6. **Insecure Dependencies** with known vulnerabilities
+7. **Missing Security Headers**
+8. **Insecure File Uploads** in task attachments
+9. **Lack of Rate Limiting**
+10. **Insecure Default Configurations**
 
 ## 🌟 Features
 
