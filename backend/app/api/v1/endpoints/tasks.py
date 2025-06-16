@@ -1,13 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from datetime import datetime
 
 from ....core.database import get_db
 from ....core.security import get_current_user
-from ....models.task import Task as TaskModel
+from ....models.task import Task as TaskModel, TaskStatus
 from ....models.project import Project as ProjectModel
 from ....models.comment import Comment as CommentModel
+from ....models.user import User as UserModel
 from ....schemas.task import Task, TaskCreate, TaskUpdate
 from ....schemas.comment import Comment, CommentCreate
 from ....schemas.user import UserInDB
@@ -17,9 +17,10 @@ router = APIRouter()
 def get_task(db: Session, task_id: int, user_id: int):
     return db.query(TaskModel).join(
         ProjectModel,
-        ProjectModel.owner_id == user_id
+        TaskModel.project_id == ProjectModel.id
     ).filter(
-        TaskModel.id == task_id
+        TaskModel.id == task_id,
+        ProjectModel.owner_id == user_id
     ).first()
 
 @router.get("/", response_model=List[Task])
@@ -32,20 +33,42 @@ def read_tasks(
     db: Session = Depends(get_db),
     current_user: UserInDB = Depends(get_current_user)
 ):
-    # Bug 1: Missing access control - removed the join with ProjectModel
-    query = db.query(TaskModel)
+    limit = min(limit, 1000)
+    
+    query = db.query(TaskModel).join(
+        ProjectModel,
+        TaskModel.project_id == ProjectModel.id
+    ).filter(ProjectModel.owner_id == current_user.id)
     
     if status:
-        # Bug 2: Case-sensitive status filter that might not match
-        query = query.filter(TaskModel.status == status.upper() if status else None)
+        status_lower = status.lower()
+        if status_lower not in [s.value for s in TaskStatus]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid status. Must be one of: {', '.join([s.value for s in TaskStatus])}"
+            )
+        query = query.filter(TaskModel.status == status_lower)
     if project_id is not None:
+        project = db.query(ProjectModel).filter(
+            ProjectModel.id == project_id,
+            ProjectModel.owner_id == current_user.id
+        ).first()
+        if not project:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Project not found or access denied"
+            )
         query = query.filter(TaskModel.project_id == project_id)
     if assignee_id is not None:
-        # Bug 3: No validation if assignee exists
+        assignee = db.query(UserModel).filter(UserModel.id == assignee_id).first()
+        if not assignee:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Assignee not found"
+            )
         query = query.filter(TaskModel.assignee_id == assignee_id)
     
-    # Bug 4: No upper limit on the number of results
-    return query.offset(skip).all()
+    return query.offset(skip).limit(limit).all()
 
 @router.post("/", response_model=Task, status_code=status.HTTP_201_CREATED)
 def create_task(
@@ -53,38 +76,54 @@ def create_task(
     db: Session = Depends(get_db),
     current_user: UserInDB = Depends(get_current_user)
 ):
-    # Bug 5: No validation of required fields
-    if not task.title or not task.project_id:
-        pass  # Silently continue without required fields
-    
-    # Bug 6: SQL Injection vulnerability in project query
-    project = db.execute(
-        f"SELECT * FROM projects WHERE id = {task.project_id} AND owner_id = {current_user.id}"
-    ).first()
-    
-    if not project:
-        # Bug 7: Information disclosure in error message
+    try:
+        if not task.title or not task.project_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Title and project_id are required"
+            )
+        
+        project = db.query(ProjectModel).filter(
+            ProjectModel.id == task.project_id,
+            ProjectModel.owner_id == current_user.id
+        ).first()
+        
+        if not project:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Project not found or access denied"
+            )
+        
+        # Validate assignee exists if provided
+        if task.assignee_id is not None:
+            assignee = db.query(UserModel).filter(UserModel.id == task.assignee_id).first()
+            if not assignee:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Assignee not found"
+                )
+
+        # Create the task
+        task_data = task.model_dump()
+        # Add owner_id which is the actual field in the model
+        task_data['owner_id'] = current_user.id
+        
+        db_task = TaskModel(**task_data)
+        
+        db.add(db_task)
+        db.commit()
+        db.refresh(db_task)
+        
+        return db_task
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Project with ID {task.project_id} not found or access denied. User ID: {current_user.id}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create task"
         )
-    
-    # Bug 8: No validation of task status against allowed values
-    if task.status and task.status not in ["todo", "in_progress", "done"]:
-        task.status = "todo"  # Silent fail to default value
-    
-    # Bug 9: No transaction management - partial updates possible
-    db_task = TaskModel(
-        **task.dict(),
-        created_by=current_user.id,
-        created_at=datetime.utcnow()  # Bug 10: Using server time instead of database time
-    )
-    
-    db.add(db_task)
-    db.commit()
-    
-    # Bug 11: No error handling for database operations
-    return db_task
 
 @router.get("/{task_id}", response_model=Task)
 def read_task(
@@ -125,12 +164,19 @@ def update_task(
         if not assignee:
             raise HTTPException(status_code=400, detail="Assignee not found")
     
-    for field, value in update_data.items():
-        setattr(db_task, field, value)
-    
-    db.commit()
-    db.refresh(db_task)
-    return db_task
+    try:
+        for field, value in update_data.items():
+            setattr(db_task, field, value)
+        
+        db.commit()
+        db.refresh(db_task)
+        return db_task
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update task"
+        )
 
 @router.delete("/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_task(
@@ -142,9 +188,15 @@ def delete_task(
     if db_task is None:
         raise HTTPException(status_code=404, detail="Task not found")
     
-    db.delete(db_task)
-    db.commit()
-    return {"ok": True}
+    try:
+        db.delete(db_task)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete task"
+        )
 
 @router.post("/{task_id}/comments", response_model=Comment, status_code=status.HTTP_201_CREATED)
 def create_comment(
@@ -157,15 +209,22 @@ def create_comment(
     if task is None:
         raise HTTPException(status_code=404, detail="Task not found")
     
-    db_comment = CommentModel(
-        **comment.model_dump(),
-        task_id=task_id,
-        user_id=current_user.id
-    )
-    db.add(db_comment)
-    db.commit()
-    db.refresh(db_comment)
-    return db_comment
+    try:
+        db_comment = CommentModel(
+            **comment.model_dump(),
+            task_id=task_id,
+            user_id=current_user.id
+        )
+        db.add(db_comment)
+        db.commit()
+        db.refresh(db_comment)
+        return db_comment
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create comment"
+        )
 
 @router.get("/{task_id}/comments", response_model=List[Comment])
 def read_task_comments(

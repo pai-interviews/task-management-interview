@@ -14,7 +14,9 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite:///./sql_app.db"
     
     # CORS
-    BACKEND_CORS_ORIGINS: List[str] = ["*"]
+    BACKEND_CORS_ORIGINS: List[str] = [
+        "http://localhost:5173", 
+    ]
     
     model_config = SettingsConfigDict(
         case_sensitive=True,

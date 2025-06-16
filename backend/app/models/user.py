@@ -18,5 +18,6 @@ class User(Base):
 
     # Relationships
     projects = relationship("Project", back_populates="owner")
-    tasks = relationship("Task", back_populates="owner")
+    tasks = relationship("Task", back_populates="owner", foreign_keys="Task.owner_id")
+    assigned_tasks = relationship("Task", foreign_keys="Task.assignee_id")
     comments = relationship("Comment", back_populates="user")
