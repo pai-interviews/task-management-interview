@@ -106,7 +106,7 @@ pip install -r requirements.txt
    alembic upgrade head
    
    # Create initial data (if available)
-   python -m app.db.init_db
+   python init_db.py
    ```
 
 3. Start the backend server:
