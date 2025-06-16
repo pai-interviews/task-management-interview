@@ -26,10 +26,12 @@ class Task(Base):
     due_date = Column(DateTime(timezone=True), nullable=True)
     project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
     owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    assignee_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     # Relationships
     project = relationship("Project", back_populates="tasks")
-    owner = relationship("User", back_populates="tasks")
+    owner = relationship("User", back_populates="tasks", foreign_keys=[owner_id])
+    assignee = relationship("User", back_populates="assigned_tasks", foreign_keys=[assignee_id], overlaps="assigned_tasks")
     comments = relationship("Comment", back_populates="task", cascade="all, delete-orphan")

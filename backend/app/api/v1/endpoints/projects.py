@@ -5,6 +5,7 @@ from typing import List
 from ....core.database import get_db
 from ....core.security import get_current_user
 from ....models.project import Project as ProjectModel
+from ....models.task import Task as TaskModel
 from ....schemas.project import Project, ProjectCreate, ProjectUpdate
 from ....schemas.user import UserInDB
 
@@ -34,14 +35,21 @@ def create_project(
     db: Session = Depends(get_db),
     current_user: UserInDB = Depends(get_current_user)
 ):
-    db_project = ProjectModel(
-        **project.model_dump(),
-        owner_id=current_user.id
-    )
-    db.add(db_project)
-    db.commit()
-    db.refresh(db_project)
-    return db_project
+    try:
+        db_project = ProjectModel(
+            **project.model_dump(),
+            owner_id=current_user.id
+        )
+        db.add(db_project)
+        db.commit()
+        db.refresh(db_project)
+        return db_project
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create project"
+        )
 
 @router.get("/{project_id}", response_model=Project)
 def read_project(
@@ -65,13 +73,20 @@ def update_project(
     if db_project is None:
         raise HTTPException(status_code=404, detail="Project not found")
     
-    update_data = project.model_dump(exclude_unset=True)
-    for field, value in update_data.items():
-        setattr(db_project, field, value)
-    
-    db.commit()
-    db.refresh(db_project)
-    return db_project
+    try:
+        update_data = project.model_dump(exclude_unset=True)
+        for field, value in update_data.items():
+            setattr(db_project, field, value)
+        
+        db.commit()
+        db.refresh(db_project)
+        return db_project
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update project"
+        )
 
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_project(
@@ -83,6 +98,14 @@ def delete_project(
     if db_project is None:
         raise HTTPException(status_code=404, detail="Project not found")
     
-    db.delete(db_project)
-    db.commit()
-    return {"ok": True}
+    try:
+        db.query(TaskModel).filter(TaskModel.project_id == project_id).delete()
+        
+        db.delete(db_project)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete project"
+        )
