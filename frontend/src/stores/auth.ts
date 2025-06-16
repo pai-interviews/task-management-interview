@@ -33,23 +33,34 @@ export const useAuthStore = defineStore('auth', () => {
     loading.value = true;
     error.value = null;
     try {
-      const response = await apiClient.post('/api/v1/auth/login', {
-        username: email,
-        password,
+      // OAuth2PasswordRequestForm expects form data, not JSON
+      const formData = new FormData();
+      formData.append('username', email);
+      formData.append('password', password);
+
+      const response = await apiClient.post('/api/v1/auth/login', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
       });
-      
+
       const { access_token, refresh_token } = response.data;
-      
+
       // Store tokens
       localStorage.setItem('access_token', access_token);
       if (refresh_token) {
         localStorage.setItem('refresh_token', refresh_token);
       }
-      
+
       // Update state
       isAuthenticated.value = true;
-      await fetchUser();
-      
+
+      try {
+        await fetchUser();
+      } catch (err) {
+        console.warn('Failed to fetch user data after login, but login was successful');
+      }
+
       // Redirect to dashboard
       router.push('/dashboard');
       return true;
