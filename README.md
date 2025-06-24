@@ -133,7 +133,7 @@ A full-stack task management application built with Vue 3 (TypeScript) and FastA
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/sagarchada-pai/task-management-system.git
+git clone https://github.com/pai-interviews/task-management-system.git
 cd task-management-system
 ```
 
@@ -382,7 +382,7 @@ Before you begin, ensure you have the following installed:
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/sagarchada-pai/task-management-system.git
+git clone https://github.com/pai-interviews/task-management-system.git
 cd task-management-system/backend
 ```
 
