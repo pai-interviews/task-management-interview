@@ -2,12 +2,19 @@ import sys
 import os
 from datetime import datetime, timedelta
 
-# Add the backend directory to the Python path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import sys
+import os
+from datetime import datetime, timedelta
 
-from app.core.database import SessionLocal, engine, Base
-from app.models import User, Project, Task, TaskStatus, TaskPriority, Comment
-from app.core.security import get_password_hash
+# Add both backend and app directories to Python path
+backend_dir = os.path.dirname(os.path.abspath(__file__))
+app_dir = os.path.join(backend_dir, 'app')
+sys.path.insert(0, backend_dir)
+sys.path.insert(0, app_dir)
+
+from core.database import SessionLocal, engine, Base
+from models import User, Project, Task, TaskStatus, TaskPriority, Comment
+from core.security import get_password_hash
 
 def init_db():
     # Create all database tables
@@ -16,7 +23,8 @@ def init_db():
     db = SessionLocal()
     
     try:
-        # Check if users already exist
+        # Check if users already exist.
+        print(db.query(User).all())
         if db.query(User).first() is not None:
             print("Database already initialized. Skipping...")
             return

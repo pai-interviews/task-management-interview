@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     
     # Database
-    DATABASE_URL: str = "sqlite:///./sql_app.db"
+    DATABASE_URL: str = "sqlite:///./../sql_app.db"
     
     # CORS
     BACKEND_CORS_ORIGINS: List[str] = ["*"]
