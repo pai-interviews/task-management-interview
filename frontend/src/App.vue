@@ -2,8 +2,8 @@
 import { RouterView } from 'vue-router';
 import { onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
-import NavBar from '@/components/layout/NavBar.vue';
-import Sidebar from '@/components/layout/Sidebar.vue';
+// import NavBar from '@/components/layout/NavBar.vue';
+// import Sidebar from '@/components/layout/Sidebar.vue';
 
 const authStore = useAuthStore();
 
@@ -15,10 +15,10 @@ onMounted(() => {
 
 <template>
   <div class="min-h-screen bg-gray-50">
-    <NavBar />
+    <!-- <NavBar /> -->
     
     <div class="flex h-[calc(100vh-4rem)]">
-      <Sidebar class="w-64 flex-shrink-0 border-r border-gray-200 bg-white" />
+      <!-- <Sidebar class="w-64 flex-shrink-0 border-r border-gray-200 bg-white" /> -->
       
       <main class="flex-1 overflow-auto p-6">
         <RouterView />

@@ -1,10 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
+from typing import List
 
-from ....core.database import get_db
-from ....core.security import get_current_user
-from ....models.user import User as UserModel
-from ....schemas.user import User, UserUpdate, UserInDB
+from core.database import get_db
+from core.security import get_current_user, get_password_hash
+from models.user import User as UserModel
+from schemas.user import User, UserUpdate, UserInDB
+from api.deps import get_current_active_superuser
 
 router = APIRouter()
 
@@ -66,4 +68,63 @@ async def update_user_me(
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
     
     # Bug 12: Returning the entire user object including sensitive fields
+    return db_user
+
+@router.get("/", response_model=List[User])
+async def get_all_users(
+    db: Session = Depends(get_db),
+    current_superuser: UserInDB = Depends(get_current_active_superuser),
+    skip: int = 0,
+    limit: int = 100
+):
+    """
+    Get all users. Requires superuser privileges.
+    
+    Args:
+        skip: Number of users to skip (for pagination)
+        limit: Maximum number of users to return (max 100)
+    """
+    # Validate pagination parameters
+    if skip < 0:
+        raise HTTPException(status_code=400, detail="Skip must be non-negative")
+    if limit < 1 or limit > 100:
+        raise HTTPException(status_code=400, detail="Limit must be between 1 and 100")
+    
+    users = db.query(UserModel).offset(skip).limit(limit).all()
+    return users
+
+@router.get("/{user_id}", response_model=User)
+async def get_user_by_id(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: UserInDB = Depends(get_current_user)
+):
+    """
+    Get a user by ID.
+    
+    Args:
+        user_id: The ID of the user to retrieve
+        
+    Returns:
+        User: The user data (excluding sensitive information)
+        
+    Raises:
+        HTTPException: If user is not found or access is denied
+    """
+    # Check if the current user is trying to access their own data or is a superuser
+    if current_user.id != user_id and not current_user.is_superuser:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions to access this user"
+        )
+    
+    # Query the user from the database
+    db_user = db.query(UserModel).filter(UserModel.id == user_id).first()
+    
+    if not db_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    
     return db_user

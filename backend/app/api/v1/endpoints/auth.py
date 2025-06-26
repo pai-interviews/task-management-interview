@@ -3,11 +3,11 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from datetime import timedelta
 
-from ....core.security import get_password_hash, create_access_token, verify_password
-from ....core.config import settings
-from ....models.user import User as UserModel
-from ....schemas.user import Token, UserCreate, User
-from ....core.database import get_db
+from core.security import get_password_hash, create_access_token, verify_password
+from core.config import settings
+from models.user import User as UserModel
+from schemas.user import Token, UserCreate, User
+from core.database import get_db
 
 router = APIRouter()
 
@@ -19,22 +19,43 @@ def authenticate_user(db: Session, email: str, password: str):
         return False
     return user
 
-@router.post("/register", response_model=User)
+@router.post("/register", response_model=User, status_code=status.HTTP_201_CREATED)
 def register_user(user: UserCreate, db: Session = Depends(get_db)):
-    db_user = db.query(UserModel).filter(UserModel.email == user.email).first()
-    if db_user:
-        raise HTTPException(status_code=400, detail="Email already registered")
-    
-    hashed_password = get_password_hash(user.password)
-    db_user = UserModel(
-        email=user.email,
-        hashed_password=hashed_password,
-        full_name=user.full_name
-    )
-    db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
-    return db_user
+    try:
+        # Check if user already exists
+        db_user = db.query(UserModel).filter(UserModel.email == user.email).first()
+        if db_user:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT, 
+                detail="Email already registered"
+            )
+        
+        # Hash password and create user
+        hashed_password = get_password_hash(user.password)
+        db_user = UserModel(
+            email=user.email,
+            hashed_password=hashed_password,
+            full_name=user.full_name,
+            is_active=True
+        )
+        
+        # Save to database with proper transaction handling
+        db.add(db_user)
+        db.commit()
+        db.refresh(db_user)
+        
+        return db_user
+        
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
+    except Exception as e:
+        # Rollback transaction on any other error
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="User registration failed"
+        )
 
 @router.post("/login", response_model=Token)
 def login_for_access_token(

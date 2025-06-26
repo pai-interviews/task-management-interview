@@ -2,8 +2,8 @@ from __future__ import annotations
 from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, List
 from datetime import datetime
-from ..models.task import TaskStatus
-from .user import User
+from models.task import TaskStatus
+from schemas.user import User
 
 class TaskBase(BaseModel):
     title: str = Field(..., max_length=255)

@@ -3,14 +3,14 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime
 
-from ....core.database import get_db
-from ....core.security import get_current_user
-from ....models.task import Task as TaskModel
-from ....models.project import Project as ProjectModel
-from ....models.comment import Comment as CommentModel
-from ....schemas.task import Task, TaskCreate, TaskUpdate
-from ....schemas.comment import Comment, CommentCreate
-from ....schemas.user import UserInDB
+from core.database import get_db
+from core.security import get_current_user
+from models.task import Task as TaskModel
+from models.project import Project as ProjectModel
+from models.comment import Comment as CommentModel
+from schemas.task import Task, TaskCreate, TaskUpdate
+from schemas.comment import Comment, CommentCreate
+from schemas.user import UserInDB
 
 router = APIRouter()
 
