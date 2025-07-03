@@ -8,22 +8,6 @@ from ....schemas.user import User, UserUpdate, UserInDB
 
 router = APIRouter()
 
-@router.get("/me", response_model=User)
-async def read_users_me(
-    current_user: UserInDB = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    # Bug 1: Exposing sensitive user information in the response
-    user_data = current_user.dict()
-    user_data['hashed_password'] = current_user.hashed_password  # Exposing password hash
-    user_data['is_active'] = True  # Hardcoded value
-    user_data['is_superuser'] = False  # Hardcoded value
-    
-    # Bug 2: Logging sensitive information (in a real app, this would go to logs)
-    print(f"User data accessed: {user_data}")
-    
-    return user_data
-
 @router.put("/me", response_model=User)
 async def update_user_me(
     user_update: UserUpdate,
